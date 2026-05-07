@@ -66,6 +66,40 @@ export const ENDPOINTS = {
     FAVORITES: "customers/favorites/",
     FAVORITE_BY_ID: (id: string) => `customers/favorites/${id}/`,
     TOGGLE_FAVORITE: "customers/favorites/toggle/",
+    CLIENTS: "customers/clients/",
+    CLIENT_BY_ID: (id: string) => `customers/clients/${id}/`,
+    MY_COMPANY: "customers/clients/mi_empresa/",
+  },
+
+  INVENTORY: {
+    MOVEMENTS: "products/inventory-movements/",
+    MOVEMENT_BY_ID: (id: string) => `products/inventory-movements/${id}/`,
+  },
+
+  QUOTES: {
+    BASE: "quotes/",
+    BY_ID: (id: string) => `quotes/${id}/`,
+    PDF: (id: string) => `quotes/${id}/pdf/`,
+  },
+
+  REPORTS: {
+    DASHBOARD: "reports/dashboard/",
+    SALES: "reports/sales/",
+    MONTHLY: "reports/monthly/",
+    TOP_CLIENTS: "reports/top-clients/",
+    ORDERS_STATUS: "reports/orders-status/",
+    LOW_STOCK: "reports/low-stock/",
+    BRANDS: "reports/brands/",
+    CATEGORIES: "reports/categories/",
+    RECENT_ACTIVITY: "reports/recent-activity/",
+  },
+
+  AI: {
+    DASHBOARD: "ai/dashboard/",
+    FORECAST: (id: string) => `ai/forecast/${id}/`,
+    REORDER_ALERT: "ai/reorder-alert/",
+    TOP_PREDICTED: "ai/top-predicted/",
+    TRAIN: "ai/train-model/",
   },
 } as const;
 

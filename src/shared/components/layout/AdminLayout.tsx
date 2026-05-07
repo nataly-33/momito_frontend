@@ -16,6 +16,10 @@ import {
   TrendingUp,
   Sliders,
   Brain,
+  LayoutDashboard,
+  Warehouse,
+  ClipboardList,
+  Building2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@core/store/auth.store";
@@ -55,16 +59,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   };
 
   const menuItems = [
+    { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-    { label: "Usuarios", href: "/admin/users", icon: Users },
-    { label: "Roles", href: "/admin/roles", icon: Shield },
+    { label: "Clientes B2B", href: "/admin/clients", icon: Building2 },
+    { label: "Pedidos", href: "/admin/orders", icon: FileText },
+    { label: "Cotizaciones", href: "/admin/quotes", icon: ClipboardList },
     { label: "Productos", href: "/admin/products", icon: Package },
+    { label: "Inventario", href: "/admin/inventory", icon: Warehouse },
     { label: "Categorías", href: "/admin/categories", icon: Tag },
     { label: "Marcas", href: "/admin/brands", icon: Store },
-    { label: "Pedidos", href: "/admin/orders", icon: FileText },
+    { label: "Usuarios", href: "/admin/users", icon: Users },
+    { label: "Roles", href: "/admin/roles", icon: Shield },
     { label: "Envíos", href: "/admin/shipments", icon: Truck },
     { label: "Reportes", href: "/admin/reports", icon: TrendingUp },
-    { label: "Predicciones", href: "/admin/predictions", icon: Brain },
+    { label: "Predicciones ML", href: "/admin/predictions", icon: Brain },
   ];
 
   return (
@@ -84,8 +92,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         }`}
       >
         <div className="p-6 border-b border-neutral-300">
-          <h1 className="text-2xl font-bold text-gray-900">Smart Sales</h1>
-          <p className="text-sm text-gray-700">Admin Panel</p>
+          <h1 className="text-xl font-bold text-gray-900">TUMOMITO S.A.</h1>
+          <p className="text-xs text-gray-600">ERP B2B · Importadora Mayorista</p>
         </div>
 
         <nav className="p-4 space-y-2 flex-1 overflow-hidden">

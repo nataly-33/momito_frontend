@@ -33,6 +33,9 @@ import { OrdersManagement } from "@/modules/admin/pages/OrdersManagement";
 import { ShipmentsManagement } from "@/modules/admin/pages/ShipmentsManagement";
 import { SettingsManagement } from "@/modules/admin/pages/SettingsManagement";
 import AdminPredictions from "@/modules/admin/pages/AdminPredictions";
+import { InventoryManagement } from "@/modules/admin/pages/InventoryManagement";
+import { QuotesManagement } from "@/modules/admin/pages/QuotesManagement";
+import { ClientsManagement } from "@/modules/admin/pages/ClientsManagement";
 
 //Reports and Analytics
 import { ReportsPage } from "@/modules/reports/pages/ReportsPage";
@@ -49,8 +52,9 @@ export const AppRoutes: React.FC = () => {
         {/* Admin Routes */}
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminDashboard />}>
-            {/* Analytics como página por defecto */}
-            <Route index element={<Navigate to="/admin/analytics" replace />} />
+            {/* Dashboard TUMOMITO como página por defecto */}
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboardOverview />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="predictions" element={<AdminPredictions />} />
@@ -62,6 +66,9 @@ export const AppRoutes: React.FC = () => {
             <Route path="orders" element={<OrdersManagement />} />
             <Route path="shipments" element={<ShipmentsManagement />} />
             <Route path="settings" element={<SettingsManagement />} />
+            <Route path="inventory" element={<InventoryManagement />} />
+            <Route path="quotes" element={<QuotesManagement />} />
+            <Route path="clients" element={<ClientsManagement />} />
           </Route>
         </Route>
 
