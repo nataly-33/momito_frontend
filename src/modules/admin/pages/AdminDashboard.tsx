@@ -7,22 +7,24 @@ export const AdminDashboard: React.FC = () => {
 
   // Determinar el título basado en la ruta
   const getTitleFromPath = () => {
-    if (location.pathname === "/admin") return "Dashboard";
-    if (location.pathname === "/admin/users") return "Gestión de Usuarios";
-    if (location.pathname === "/admin/roles") return "Gestión de Roles";
-    if (location.pathname === "/admin/products") return "Gestión de Productos";
-    if (location.pathname === "/admin/categories")
-      return "Gestión de Categorías";
-    if (location.pathname === "/admin/brands") return "Gestión de Marcas";
-    if (location.pathname === "/admin/orders") return "Gestión de Pedidos";
-    if (location.pathname === "/admin/shipments") return "Gestión de Envíos";
-    if (location.pathname === "/admin/settings") return "Configuración";
-    if (location.pathname === "/admin/reports") return "Reportes Dinámicos";
-    if (location.pathname === "/admin/analytics") return "Estadísticas";
-    if (location.pathname === "/admin/predictions")
-      return "Predicciones con AI";
-
-    return "Panel de Administración";
+    const titles: Record<string, string> = {
+      "/admin/dashboard": "Dashboard — TUMOMITO S.A.",
+      "/admin/analytics": "Estadísticas",
+      "/admin/reports": "Reportes Dinámicos",
+      "/admin/predictions": "Predicciones con AI",
+      "/admin/users": "Gestión de Usuarios",
+      "/admin/roles": "Gestión de Roles",
+      "/admin/products": "Gestión de Productos",
+      "/admin/categories": "Gestión de Categorías",
+      "/admin/brands": "Gestión de Marcas",
+      "/admin/orders": "Gestión de Pedidos",
+      "/admin/shipments": "Gestión de Envíos",
+      "/admin/settings": "Configuración",
+      "/admin/inventory": "Inventario",
+      "/admin/quotes": "Cotizaciones B2B",
+      "/admin/clients": "Clientes Empresa",
+    };
+    return titles[location.pathname] || "Panel de Administración TUMOMITO";
   };
 
   return (
