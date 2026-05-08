@@ -27,28 +27,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       return;
     }
 
-    // Verificar que el producto tenga tallas disponibles
-    if (
-      !product.tallas_disponibles_detalle ||
-      product.tallas_disponibles_detalle.length === 0
-    ) {
-      alert("No hay tallas disponibles para este producto");
-      return;
-    }
+    // Usar la primera talla disponible si existe (productos B2C); B2B no requiere talla
+    const defaultSize = product.tallas_disponibles_detalle?.[0];
 
-    // Usar la primera talla disponible por defecto
-    const defaultSize = product.tallas_disponibles_detalle[0];
-
-    // Add to backend cart
     try {
       await cartService.addItem({
         prenda_id: product.id,
-        talla_id: defaultSize.id,
+        talla_id: defaultSize?.id,
         cantidad: 1,
       });
-      alert(
-        `Agregado al carrito: ${product.nombre} - Talla ${defaultSize.nombre}`
-      );
+      alert(`Agregado al carrito: ${product.nombre}`);
     } catch (err: any) {
       console.error("Error adding to cart:", err);
       alert(err.response?.data?.error || "Error al agregar al carrito");

@@ -23,7 +23,6 @@ export const ProductsPage: React.FC = () => {
     categories: [],
     brands: [],
     colors: [],
-    sizes: [],
     priceMin: "",
     priceMax: "",
   });
@@ -32,7 +31,6 @@ export const ProductsPage: React.FC = () => {
     categories: [],
     brands: [],
     colors: [],
-    sizes: ["XS", "S", "M", "L", "XL", "XXL"],
   });
 
   useEffect(() => {
@@ -75,11 +73,6 @@ export const ProductsPage: React.FC = () => {
       // price filters: only include when set
       if (filters.priceMin) params.precio_min = Number(filters.priceMin);
       if (filters.priceMax) params.precio_max = Number(filters.priceMax);
-
-      // sizes: backend expects 'talla' (single id) or filter by stocks via another endpoint.
-      // If the UI sends a single size id, map it; otherwise skip.
-      if (filters.sizes && filters.sizes.length === 1)
-        params.talla = filters.sizes[0];
 
       // map featured/new query params from URL to backend names
       const featured =
@@ -137,11 +130,14 @@ export const ProductsPage: React.FC = () => {
           <div className="flex-1">
             {/* Toolbar */}
             <div className="flex items-center justify-between mb-6">
-              <ProductFilters
-                options={filterOptions}
-                activeFilters={filters}
-                onFilterChange={setFilters}
-              />
+              {/* Mobile-only filter button — desktop uses the sidebar */}
+              <div className="lg:hidden">
+                <ProductFilters
+                  options={filterOptions}
+                  activeFilters={filters}
+                  onFilterChange={setFilters}
+                />
+              </div>
 
               <div className="flex items-center gap-4">
                 {/* Sort */}
@@ -200,7 +196,6 @@ export const ProductsPage: React.FC = () => {
                       categories: [],
                       brands: [],
                       colors: [],
-                      sizes: [],
                       priceMin: "",
                       priceMax: "",
                     })

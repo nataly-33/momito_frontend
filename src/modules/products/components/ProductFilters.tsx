@@ -5,14 +5,12 @@ interface FilterOptions {
   categories: Array<{ id: string; nombre: string }>;
   brands: Array<{ id: string; nombre: string }>;
   colors: string[];
-  sizes: string[];
 }
 
 interface ActiveFilters {
   categories: string[];
   brands: string[];
   colors: string[];
-  sizes: string[];
   priceMin: string;
   priceMax: string;
 }
@@ -34,7 +32,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     const newCategories = activeFilters.categories.includes(categoryId)
       ? activeFilters.categories.filter((id) => id !== categoryId)
       : [...activeFilters.categories, categoryId];
-
     onFilterChange({ ...activeFilters, categories: newCategories });
   };
 
@@ -42,7 +39,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     const newBrands = activeFilters.brands.includes(brandId)
       ? activeFilters.brands.filter((id) => id !== brandId)
       : [...activeFilters.brands, brandId];
-
     onFilterChange({ ...activeFilters, brands: newBrands });
   };
 
@@ -50,16 +46,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     const newColors = activeFilters.colors.includes(color)
       ? activeFilters.colors.filter((c) => c !== color)
       : [...activeFilters.colors, color];
-
     onFilterChange({ ...activeFilters, colors: newColors });
-  };
-
-  const handleSizeToggle = (size: string) => {
-    const newSizes = activeFilters.sizes.includes(size)
-      ? activeFilters.sizes.filter((s) => s !== size)
-      : [...activeFilters.sizes, size];
-
-    onFilterChange({ ...activeFilters, sizes: newSizes });
   };
 
   const clearAllFilters = () => {
@@ -67,11 +54,15 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
       categories: [],
       brands: [],
       colors: [],
-      sizes: [],
       priceMin: "",
       priceMax: "",
     });
   };
+
+  const hasActiveFilters =
+    activeFilters.categories.length > 0 ||
+    activeFilters.brands.length > 0 ||
+    activeFilters.colors.length > 0;
 
   return (
     <>
@@ -103,10 +94,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
 
         <div className="p-4 lg:p-0 space-y-6 overflow-y-auto max-h-screen lg:max-h-none">
           {/* Active Filters */}
-          {(activeFilters.categories.length > 0 ||
-            activeFilters.brands.length > 0 ||
-            activeFilters.colors.length > 0 ||
-            activeFilters.sizes.length > 0) && (
+          {hasActiveFilters && (
             <div className="pb-6 border-b border-neutral-200">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-sm">Filtros Activos</h4>
@@ -116,9 +104,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                 >
                   Limpiar todo
                 </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {/* Show active filter tags */}
               </div>
             </div>
           )}
@@ -196,50 +181,29 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
           </div>
 
           {/* Colors */}
-          <div className="pb-6 border-b border-neutral-200">
-            <h4 className="font-semibold mb-4">Colores</h4>
-            <div className="flex flex-wrap gap-3">
-              {options.colors.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => handleColorToggle(color)}
-                  className={`
-                    px-3 py-1.5 rounded-full text-sm border-2 transition-all
-                    ${
-                      activeFilters.colors.includes(color)
-                        ? "border-primary-500 bg-primary-50 text-primary-700"
-                        : "border-neutral-300 text-neutral-700 hover:border-neutral-400"
-                    }
-                  `}
-                >
-                  {color}
-                </button>
-              ))}
+          {options.colors.length > 0 && (
+            <div>
+              <h4 className="font-semibold mb-4">Colores</h4>
+              <div className="flex flex-wrap gap-3">
+                {options.colors.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => handleColorToggle(color)}
+                    className={`
+                      px-3 py-1.5 rounded-full text-sm border-2 transition-all
+                      ${
+                        activeFilters.colors.includes(color)
+                          ? "border-primary-500 bg-primary-50 text-primary-700"
+                          : "border-neutral-300 text-neutral-700 hover:border-neutral-400"
+                      }
+                    `}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* Sizes */}
-          <div>
-            <h4 className="font-semibold mb-4">Tallas</h4>
-            <div className="flex flex-wrap gap-3">
-              {options.sizes.map((size) => (
-                <button
-                  key={size}
-                  onClick={() => handleSizeToggle(size)}
-                  className={`
-                    w-12 h-12 rounded-lg text-sm font-medium border-2 transition-all
-                    ${
-                      activeFilters.sizes.includes(size)
-                        ? "border-primary-500 bg-primary-50 text-primary-700"
-                        : "border-neutral-300 text-neutral-700 hover:border-neutral-400"
-                    }
-                  `}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
