@@ -26,6 +26,8 @@ export interface Product {
   imagen_principal: string | null;
   stock_total: number;
   tiene_stock: boolean;
+  min_order_qty?: number;
+  price_wholesale?: number;
   activa: boolean;
   destacada: boolean;
   es_novedad: boolean;
@@ -36,7 +38,7 @@ export interface Category {
   id: string;
   nombre: string;
   descripcion: string;
-  imagen: string | null;
+  imagen_url: string | null;  // URL relativa devuelta por el backend
   activa: boolean;
   total_prendas: number;
 }

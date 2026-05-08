@@ -27,16 +27,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       return;
     }
 
-    // Usar la primera talla disponible si existe (productos B2C); B2B no requiere talla
+    // Usar la primera talla disponible si existe (B2C); B2B no requiere talla
     const defaultSize = product.tallas_disponibles_detalle?.[0];
+    // Respetar la cantidad mínima de pedido mayorista (min_order_qty)
+    const cantidad = Math.max(1, product.min_order_qty || 1);
 
     try {
       await cartService.addItem({
         prenda_id: product.id,
         talla_id: defaultSize?.id,
-        cantidad: 1,
+        cantidad,
       });
-      alert(`Agregado al carrito: ${product.nombre}`);
+      const moqMsg = cantidad > 1 ? ` (mín. ${cantidad} uds.)` : "";
+      alert(`Agregado al carrito: ${product.nombre}${moqMsg}`);
     } catch (err: any) {
       console.error("Error adding to cart:", err);
       alert(err.response?.data?.error || "Error al agregar al carrito");
@@ -118,7 +121,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <p className="text-sm text-text-secondary mb-3">{product.color}</p>
           <div className="flex items-center justify-between">
             <span className="text-xl font-bold text-accent-chocolate">
-              ${product.precio}
+              Bs {product.precio}
             </span>
             {!product.tiene_stock && (
               <span className="text-xs text-error font-semibold bg-error/10 px-2 py-1">
@@ -126,6 +129,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               </span>
             )}
           </div>
+          {(product.min_order_qty ?? 1) > 1 && (
+            <p className="text-[10px] text-neutral-400 mt-1">
+              Mín. pedido: {product.min_order_qty} uds.
+            </p>
+          )}
         </div>
       </Link>
     </div>

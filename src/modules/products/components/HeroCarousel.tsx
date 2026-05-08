@@ -21,25 +21,25 @@ interface HeroSlide {
 const slides: HeroSlide[] = [
   {
     id: 1,
-    image: "images/banners/fondo3.png",
-    title: "Nueva Colección",
-    subtitle: "Descubre las últimas tendencias",
+    image: "images/banners/fondo2.jpg",
+    title: "Disponibilidad 24/7",
+    subtitle: "Tu proveedor que nunca duerme",
     cta: "Explorar",
     link: "/products?new=true",
   },
   {
     id: 2,
-    image: "images/banners/fondo2.jpg",
-    title: "Ofertas Especiales",
-    subtitle: "Hasta 50% de descuento",
+    image: "images/banners/fondo3.jpg",
+    title: "Rapidez",
+    subtitle: "La mejor calidad en un solo click",
     cta: "Ver Ofertas",
     link: "/products?featured=true",
   },
   {
     id: 3,
     image: "images/banners/fondo1.jpg",
-    title: "Estilo Único",
-    subtitle: "Prendas exclusivas para ti",
+    title: "Confianza",
+    subtitle: "Pedidos seguros, entregas puntuales",
     cta: "Comprar Ahora",
     link: "/products",
   },
@@ -88,7 +88,10 @@ export const HeroCarousel: React.FC = () => {
               {/* Content Container */}
               <div className="relative z-10 h-full flex items-center">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                  <div className="max-w-2xl animate-fade-in">
+                  <div
+                    className="animate-fade-in text-left"
+                    style={{ paddingRight: '60vw' }}
+                  >
                     <h1 className="text-4xl md:text-5xl lg:text-7xl font-display font-bold text-white mb-4 leading-tight drop-shadow-2xl animate-slide-up">
                       {slide.title}
                     </h1>
@@ -109,10 +112,10 @@ export const HeroCarousel: React.FC = () => {
         ))}
 
         {/* Custom Navigation Buttons */}
-        <button className="swiper-button-prev-custom absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white hover:scale-110 transition-all duration-300 group shadow-xl hover:shadow-2xl">
+        <button className="swiper-button-prev-custom absolute left-1 md:left-2 top-1/2 -translate-y-1/2 z-20 p-2 md:p-3 bg-white/5 backdrop-blur-sm rounded-full hover:bg-white/15 hover:scale-110 transition-all duration-300 group shadow-xl hover:shadow-2xl">
           <ChevronLeft className="text-accent-chocolate" size={24} />
         </button>
-        <button className="swiper-button-next-custom absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white hover:scale-110 transition-all duration-300 group shadow-xl hover:shadow-2xl">
+        <button className="swiper-button-next-custom absolute right-1 md:right-2 top-1/2 -translate-y-1/2 z-20 p-2 md:p-3 bg-white/5 backdrop-blur-sm rounded-full hover:bg-white/15 hover:scale-110 transition-all duration-300 group shadow-xl hover:shadow-2xl">
           <ChevronRight className="text-accent-chocolate" size={24} />
         </button>
 

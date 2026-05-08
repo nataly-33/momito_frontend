@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  Heart,
-  ShoppingCart,
-  Minus,
-  Plus,
-  ChevronLeft,
-  Star,
+  Heart, ShoppingCart, Minus, Plus, ChevronLeft, Star,
+  Wifi, WifiOff, AlertTriangle, Package,
 } from "lucide-react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Thumbs, FreeMode } from "swiper/modules";
@@ -14,6 +10,7 @@ import { Button } from "@shared/components/ui/Button";
 import { productsService } from "@modules/products/services/products.service";
 import { cartService } from "@modules/cart/services/cart.service";
 import { useAuthStore } from "@core/store/auth.store";
+import { useProductStock } from "@core/hooks/useProductStock";
 import type { Product } from "@modules/products/types";
 
 import "swiper/css";
@@ -21,6 +18,47 @@ import "swiper/css/navigation";
 import "swiper/css/thumbs";
 import "swiper/css/free-mode";
 
+// -------- Stock badge --------
+function StockBadge({ disponible, min, connected }: { disponible: number; min: number; connected: boolean }) {
+  const pct = disponible / Math.max(disponible, min * 5);
+  const isOut = disponible === 0;
+  const isLow = !isOut && disponible <= min * 2;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {/* Live indicator */}
+      <span className={`flex items-center gap-1 text-xs ${connected ? "text-green-600" : "text-gray-400"}`}>
+        {connected ? <Wifi size={12} /> : <WifiOff size={12} />}
+        {connected ? "En vivo" : "Reconectando..."}
+      </span>
+
+      {/* Stock count */}
+      {isOut ? (
+        <span className="flex items-center gap-1 text-sm font-semibold text-red-600">
+          <AlertTriangle size={14} /> Sin stock
+        </span>
+      ) : (
+        <span className={`text-sm font-semibold ${isLow ? "text-amber-600" : "text-green-700"}`}>
+          <Package size={13} className="inline mr-1" />
+          {disponible} uds. disponibles
+          {isLow && <span className="ml-1 text-xs font-normal">(¡últimas unidades!)</span>}
+        </span>
+      )}
+
+      {/* Stock bar */}
+      {!isOut && (
+        <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${isLow ? "bg-amber-400" : "bg-green-500"}`}
+            style={{ width: `${Math.min(pct * 100, 100)}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------- Main Component --------
 export const ProductDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -31,73 +69,103 @@ export const ProductDetailPage: React.FC = () => {
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
   const [thumbsSwiper, setThumbsSwiper] = useState<any>(null);
+  const [addingToCart, setAddingToCart] = useState(false);
+
+  // WebSocket: stock en tiempo real
+  const { stock, connected } = useProductStock(slug ?? null);
+
+  // Cuando carga el producto, ajustar cantidad mínima
+  useEffect(() => {
+    if (slug) loadProduct();
+  }, [slug]);
 
   useEffect(() => {
-    if (slug) {
-      loadProduct();
+    if (product) {
+      const minQty = product.min_order_qty || 1;
+      setQuantity(minQty);
+      // Auto-seleccionar primera talla si existe
+      if (product.tallas_disponibles_detalle?.length > 0 && !selectedSize) {
+        setSelectedSize(product.tallas_disponibles_detalle[0].id);
+      }
     }
-  }, [slug]);
+  }, [product]);
+
+  // Sincronizar con actualizaciones WebSocket: si el stock cae por debajo de la cantidad elegida
+  useEffect(() => {
+    if (stock && quantity > stock.disponible && stock.disponible > 0) {
+      setQuantity(stock.disponible);
+    }
+  }, [stock]);
 
   const loadProduct = async () => {
     try {
       setLoading(true);
       const data = await productsService.getProduct(slug!);
       setProduct(data);
-    } catch (error) {
-      console.error("Error loading product:", error);
+    } catch {
       navigate("/products");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddToCart = async () => {
-    if (!selectedSize) {
-      alert("Por favor selecciona una talla");
-      return;
-    }
+  const minQty = product?.min_order_qty || 1;
+  // Stock real: prefiere WebSocket, fallback al campo del producto
+  const stockActual = stock?.disponible ?? product?.stock_total ?? 0;
+  const tieneStock = stock ? stock.tiene_stock : (product?.tiene_stock ?? false);
+  const hasTallas = (product?.tallas_disponibles_detalle?.length ?? 0) > 0;
 
+  const handleDecrement = () => setQuantity((q) => Math.max(minQty, q - minQty));
+  const handleIncrement = () => setQuantity((q) => Math.min(stockActual || q + minQty, q + minQty));
+
+  const handleAddToCart = async () => {
     if (!isAuthenticated) {
       navigate("/login?redirect=" + window.location.pathname);
       return;
     }
+    if (!product) return;
+    if (!tieneStock) {
+      alert("Producto agotado");
+      return;
+    }
+    if (hasTallas && !selectedSize) {
+      alert("Por favor selecciona una talla");
+      return;
+    }
+    if (quantity > stockActual) {
+      alert(`Solo hay ${stockActual} unidades disponibles`);
+      return;
+    }
 
-    if (product) {
-      const talla = product.tallas_disponibles_detalle?.find(
-        (t: any) => t.id === selectedSize
-      );
-      if (talla) {
-        try {
-          await cartService.addItem({
-            prenda_id: product.id,
-            talla_id: selectedSize,
-            cantidad: quantity,
-          });
-          alert("Producto agregado al carrito");
-        } catch (err: any) {
-          console.error("Error adding to cart:", err);
-          alert(err.response?.data?.error || "Error al agregar al carrito");
-        }
-      }
+    setAddingToCart(true);
+    try {
+      await cartService.addItem({
+        prenda_id: product.id,
+        talla_id: selectedSize || undefined,
+        cantidad: quantity,
+      });
+      alert(`✓ ${product.nombre} (${quantity} uds.) agregado al carrito`);
+    } catch (err: any) {
+      alert(err.response?.data?.cantidad?.[0] || err.response?.data?.error || "Error al agregar al carrito");
+    } finally {
+      setAddingToCart(false);
     }
   };
 
+  // ---------- Loading ----------
   if (loading) {
     return (
       <div className="min-h-screen bg-background-primary flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
       </div>
     );
   }
 
-  if (!product) {
-    return null;
-  }
+  if (!product) return null;
 
   const images = product.imagenes_url || [];
   const mainImage = product.imagen_principal || "/images/placeholder.jpg";
-  const allImages =
-    images.length > 0 ? images.map((img: any) => img.imagen_url) : [mainImage];
+  const allImages = images.length > 0 ? images.map((img: any) => img.imagen_url) : [mainImage];
 
   return (
     <div className="min-h-screen bg-background-primary">
@@ -112,20 +180,14 @@ export const ProductDetailPage: React.FC = () => {
         </button>
 
         <div className="grid lg:grid-cols-2 gap-12">
-          {/* Images */}
+          {/* ── Imágenes ── */}
           <div>
             <div className="flex justify-center">
               <div className="w-full max-w-md p-4 bg-neutral-100 rounded-2xl">
-                {/* Main Image */}
                 <Swiper
                   modules={[Navigation, Thumbs]}
                   navigation
-                  thumbs={{
-                    swiper:
-                      thumbsSwiper && !thumbsSwiper.destroyed
-                        ? thumbsSwiper
-                        : null,
-                  }}
+                  thumbs={{ swiper: thumbsSwiper && !thumbsSwiper.destroyed ? thumbsSwiper : null }}
                   className="rounded-lg w-full"
                 >
                   {allImages.map((image, index) => (
@@ -139,7 +201,6 @@ export const ProductDetailPage: React.FC = () => {
                   ))}
                 </Swiper>
 
-                {/* Thumbnails */}
                 {allImages.length > 1 && (
                   <div className="mt-4">
                     <Swiper
@@ -167,115 +228,136 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Product Info */}
+          {/* ── Información ── */}
           <div>
-            <div className="mb-6">
-              <p className="text-sm text-neutral-500 uppercase tracking-wide mb-2">
-                {product.marca_detalle?.nombre}
+            {/* Header del producto */}
+            <div className="mb-5">
+              <p className="text-sm text-neutral-500 uppercase tracking-wide mb-1">
+                {product.marca_detalle?.nombre || product.marca_nombre}
               </p>
               <h1 className="text-3xl font-display font-bold text-neutral-900 mb-2">
                 {product.nombre}
               </h1>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex items-center">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex">
                   {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      size={16}
-                      className="text-yellow-400 fill-current"
-                    />
+                    <Star key={i} size={15} className="text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <span className="text-sm text-neutral-600">(0 reseñas)</span>
+                <span className="text-sm text-neutral-500">(0 reseñas)</span>
               </div>
-              <p className="text-3xl font-bold text-primary-600">
-                ${product.precio}
-              </p>
+
+              {/* Precio */}
+              <div className="flex items-baseline gap-3">
+                <p className="text-3xl font-bold text-primary-600">
+                  Bs {product.price_wholesale ?? product.precio}
+                </p>
+                {product.price_wholesale && product.precio !== product.price_wholesale && (
+                  <p className="text-sm text-neutral-400 line-through">Bs {product.precio}</p>
+                )}
+              </div>
+
+              {/* Cantidad mínima */}
+              {minQty > 1 && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mt-2 inline-block">
+                  Pedido mínimo mayorista: <strong>{minQty} unidades</strong>
+                </p>
+              )}
             </div>
 
-            {/* Description */}
-            <div className="mb-6">
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Descripción
-              </h3>
-              <p className="text-neutral-700">{product.descripcion}</p>
-            </div>
+            {/* Descripción */}
+            {product.descripcion && (
+              <div className="mb-5">
+                <h3 className="font-semibold text-neutral-900 mb-1">Descripción</h3>
+                <p className="text-neutral-700 text-sm leading-relaxed">{product.descripcion}</p>
+              </div>
+            )}
 
             {/* Color */}
-            <div className="mb-6">
-              <h3 className="font-semibold text-neutral-900 mb-2">Color</h3>
-              <div className="flex items-center gap-3">
-                <div className="px-4 py-2 border-2 border-primary-500 bg-primary-50 rounded-lg">
-                  <span className="text-sm font-medium text-primary-700">
-                    {product.color}
-                  </span>
-                </div>
+            {product.color && (
+              <div className="mb-5">
+                <h3 className="font-semibold text-neutral-900 mb-2">Color</h3>
+                <span className="px-4 py-2 border-2 border-primary-500 bg-primary-50 rounded-lg text-sm font-medium text-primary-700">
+                  {product.color}
+                </span>
               </div>
-            </div>
+            )}
 
-            {/* Size Selection */}
-            <div className="mb-6">
-              <h3 className="font-semibold text-neutral-900 mb-2">Talla</h3>
-              <div className="flex flex-wrap gap-3">
-                {product.tallas_disponibles_detalle?.map((size: any) => (
-                  <button
-                    key={size.id}
-                    onClick={() => setSelectedSize(size.id)}
-                    className={`
-                      w-12 h-12 rounded-lg border-2 font-medium transition-all
-                      ${
+            {/* Tallas — solo para productos B2C con tallas */}
+            {hasTallas && (
+              <div className="mb-5">
+                <h3 className="font-semibold text-neutral-900 mb-2">Talla</h3>
+                <div className="flex flex-wrap gap-3">
+                  {product.tallas_disponibles_detalle.map((size: any) => (
+                    <button
+                      key={size.id}
+                      onClick={() => setSelectedSize(size.id)}
+                      className={`w-12 h-12 rounded-lg border-2 font-medium transition-all ${
                         selectedSize === size.id
                           ? "border-primary-500 bg-primary-50 text-primary-700"
                           : "border-neutral-300 text-neutral-700 hover:border-neutral-400"
-                      }
-                    `}
-                  >
-                    {size.nombre}
-                  </button>
-                ))}
+                      }`}
+                    >
+                      {size.nombre}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Stock en tiempo real */}
+            <div className="mb-5">
+              <h3 className="font-semibold text-neutral-900 mb-2">Disponibilidad</h3>
+              {stock !== null ? (
+                <StockBadge disponible={stock.disponible} min={minQty} connected={connected} />
+              ) : (
+                <span className="text-sm text-neutral-400">Cargando stock...</span>
+              )}
             </div>
 
-            {/* Quantity */}
+            {/* Selector de cantidad */}
             <div className="mb-6">
-              <h3 className="font-semibold text-neutral-900 mb-2">Cantidad</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-neutral-900">Cantidad</h3>
+                {minQty > 1 && (
+                  <span className="text-xs text-neutral-500">Incrementos de {minQty} uds.</span>
+                )}
+              </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center border border-neutral-300 rounded-lg">
                   <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="p-3 hover:bg-neutral-50"
+                    onClick={handleDecrement}
+                    disabled={quantity <= minQty}
+                    className="p-3 hover:bg-neutral-50 disabled:opacity-30"
                   >
                     <Minus size={18} />
                   </button>
-                  <span className="px-6 font-medium">{quantity}</span>
+                  <span className="px-6 font-semibold text-lg min-w-[60px] text-center">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="p-3 hover:bg-neutral-50"
+                    onClick={handleIncrement}
+                    disabled={stockActual > 0 && quantity >= stockActual}
+                    className="p-3 hover:bg-neutral-50 disabled:opacity-30"
                   >
                     <Plus size={18} />
                   </button>
                 </div>
-                <p className="text-sm text-neutral-600">
-                  {product.tiene_stock ? (
-                    <span className="text-green-600">En stock</span>
-                  ) : (
-                    <span className="text-red-600">Agotado</span>
-                  )}
-                </p>
+                <span className="text-xs text-neutral-400">
+                  Total: <strong>Bs {((product.price_wholesale ?? product.precio) * quantity).toFixed(2)}</strong>
+                </span>
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Acciones */}
             <div className="flex gap-4 mb-6">
               <Button
                 variant="primary"
                 size="lg"
                 className="flex-1"
                 onClick={handleAddToCart}
-                disabled={!product.tiene_stock}
+                disabled={!tieneStock || addingToCart}
               >
                 <ShoppingCart size={20} className="mr-2" />
-                Agregar al Carrito
+                {addingToCart ? "Agregando..." : tieneStock ? "Agregar al carrito" : "Sin stock"}
               </Button>
               <button className="p-4 border-2 border-neutral-300 rounded-lg hover:border-primary-500 hover:text-primary-600 transition-colors">
                 <Heart size={24} />
@@ -283,38 +365,15 @@ export const ProductDetailPage: React.FC = () => {
             </div>
 
             {/* Features */}
-            <div className="border-t border-neutral-200 pt-6 space-y-3">
-              <div className="flex items-center gap-3 text-sm text-neutral-700">
-                <svg
-                  className="w-5 h-5 text-primary-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <span>Envío gratis en compras mayores a $100</span>
+            <div className="border-t border-neutral-200 pt-5 space-y-2 text-sm text-neutral-600">
+              <div className="flex items-center gap-2">
+                <span className="text-green-500">✓</span> Envío para todo Bolivia
               </div>
-              <div className="flex items-center gap-3 text-sm text-neutral-700">
-                <svg
-                  className="w-5 h-5 text-primary-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <span>Pago seguro</span>
+              <div className="flex items-center gap-2">
+                <span className="text-green-500">✓</span> Pago seguro — efectivo, tarjeta o transferencia
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-green-500">✓</span> Stock reservado al confirmar el pedido
               </div>
             </div>
           </div>
