@@ -26,7 +26,7 @@ export interface Cart {
 
 export interface AddToCartRequest {
   prenda_id: string;
-  talla_id: string;
+  talla_id?: string;
   cantidad: number;
 }
 

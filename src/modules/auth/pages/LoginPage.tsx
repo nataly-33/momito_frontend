@@ -37,7 +37,8 @@ export default function LoginPage() {
       login(response.user, response.access, response.refresh);
       
       // Redirigir según el rol del usuario
-      if (response.user.rol_detalle.nombre === "Admin" || response.user.rol_detalle.nombre === "Empleado") {
+      const rolNombre = response.user?.rol_detalle?.nombre || (response.user as any)?.rol_nombre;
+      if (rolNombre === "Admin" || rolNombre === "Empleado") {
         navigate("/admin");
       } else {
         navigate(PUBLIC_ROUTES.HOME);
