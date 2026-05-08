@@ -25,12 +25,12 @@ export const Navbar: React.FC = () => {
           
           <Link to={PUBLIC_ROUTES.HOME} className="flex items-center space-x-3">
             <img 
-              src="/logo/ss_logo_negro.png" 
+              src="/logo/logo.png" 
               alt="SmartSales Logo" 
               className="h-12 w-12 object-contain"
             />
             <span className="text-2xl font-display font-bold text-text-important">
-              SmartSales
+              TU MOMITO
             </span>
           </Link>
 

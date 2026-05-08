@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@core/store/auth.store";
+import { label } from "framer-motion/client";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -60,18 +61,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   const menuItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-    { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-    { label: "Clientes B2B", href: "/admin/clients", icon: Building2 },
-    { label: "Pedidos", href: "/admin/orders", icon: FileText },
+   /* { label: "Estadísticas", href: "/admin/analytics", icon: BarChart3 }, */
     { label: "Cotizaciones", href: "/admin/quotes", icon: ClipboardList },
+    { label: "Pedidos", href: "/admin/orders", icon: FileText },
     { label: "Productos", href: "/admin/products", icon: Package },
-    { label: "Inventario", href: "/admin/inventory", icon: Warehouse },
     { label: "Categorías", href: "/admin/categories", icon: Tag },
     { label: "Marcas", href: "/admin/brands", icon: Store },
+    { label: "Inventario", href: "/admin/inventory", icon: Warehouse },
+    { label: "Clientes B2B", href: "/admin/clients", icon: Building2 },
     { label: "Usuarios", href: "/admin/users", icon: Users },
-    { label: "Roles", href: "/admin/roles", icon: Shield },
-    { label: "Envíos", href: "/admin/shipments", icon: Truck },
-    { label: "Reportes", href: "/admin/reports", icon: TrendingUp },
+   /* { label: "Reportes", href: "/admin/reports", icon: TrendingUp }, */
+   /* { label: "Roles", href: "/admin/roles", icon: Shield }, */
     { label: "Predicciones ML", href: "/admin/predictions", icon: Brain },
   ];
 
@@ -85,38 +85,47 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — flex column para que el nav ocupe el espacio restante y sea scrollable */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 w-64 bg-accent-cream text-gray-900 shadow-lg transform transition-transform duration-300 z-50 ${
+        className={`fixed lg:static inset-y-0 left-0 w-56 h-full flex flex-col bg-accent-cream text-gray-900 shadow-lg transform transition-transform duration-300 z-50 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="p-6 border-b border-neutral-300">
-          <h1 className="text-xl font-bold text-gray-900">TUMOMITO S.A.</h1>
-          <p className="text-xs text-gray-600">ERP B2B · Importadora Mayorista</p>
+        {/* Header fijo */}
+        <div className="px-4 py-4 border-b border-neutral-300 shrink-0">
+          <h1 className="text-base font-bold text-gray-900 leading-tight">TUMOMITO S.A.</h1>
+          <p className="text-[10px] text-gray-500 mt-0.5">ERP B2B · Importadora Mayorista</p>
         </div>
 
-        <nav className="p-4 space-y-2 flex-1 overflow-hidden">
+        {/* Nav scrollable — ocupa todo el espacio disponible */}
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
+            const isActive = window.location.pathname === item.href;
             return (
               <a
                 key={item.href}
                 href={item.href}
                 onClick={() => {
-                  // Solo cerrar en móvil
-                  if (window.innerWidth < 1024) {
-                    setSidebarOpen(false);
-                  }
+                  if (window.innerWidth < 1024) setSidebarOpen(false);
                 }}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-900 hover:bg-accent-mauve transition-colors"
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  isActive
+                    ? "bg-accent-mauve text-gray-900 font-semibold"
+                    : "text-gray-700 hover:bg-accent-mauve/60"
+                }`}
               >
-                <IconComponent size={20} className="text-gray-900" />
-                <span className="font-medium">{item.label}</span>
+                <IconComponent size={16} className="shrink-0" />
+                <span>{item.label}</span>
               </a>
             );
           })}
         </nav>
+
+        {/* Footer del sidebar */}
+        <div className="px-4 py-3 border-t border-neutral-300 shrink-0 bg-accent-cream">
+          <p className="text-[10px] text-gray-400 text-center">v1.0 · TUMOMITO ERP</p>
+        </div>
       </aside>
 
       {/* Main Content */}
