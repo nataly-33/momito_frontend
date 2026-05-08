@@ -125,37 +125,49 @@ export const CategoriesManagement: React.FC = () => {
           {categories.map((category) => (
             <div
               key={category.id}
-              className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
+              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-neutral-900 mb-1">
-                    {category.nombre}
-                  </h3>
-                  <p className="text-xs text-neutral-600 line-clamp-2">
-                    {category.descripcion || "Sin descripción"}
-                  </p>
+              {/* Imagen de categoría */}
+              <div className="relative h-36 bg-neutral-100 flex items-center justify-center">
+                {category.imagen_url ? (
+                  <img
+                    src={category.imagen_url}
+                    alt={category.nombre}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-3xl text-neutral-300">🖼</span>
+                )}
+                <div className="absolute top-2 right-2">
+                  <StatusBadge status={category.activa} />
                 </div>
-                <StatusBadge status={category.activa} />
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-neutral-200">
-                <span className="text-xs text-neutral-600">
-                  {category.total_prendas} productos
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleEdit(category)}
-                    className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(category)}
-                    className="p-1.5 text-neutral-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+              <div className="p-3">
+                <h3 className="text-sm font-semibold text-neutral-900 mb-0.5">
+                  {category.nombre}
+                </h3>
+                <p className="text-xs text-neutral-500 line-clamp-2 mb-2">
+                  {category.descripcion || "Sin descripción"}
+                </p>
+                <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                  <span className="text-xs text-neutral-500">
+                    {category.total_prendas} productos
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleEdit(category)}
+                      className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                    >
+                      <Edit size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(category)}
+                      className="p-1.5 text-neutral-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -205,14 +217,33 @@ export const CategoriesManagement: React.FC = () => {
                 <label className="block text-xs font-medium text-neutral-700 mb-1">
                   Imagen
                 </label>
+                {/* Preview imagen actual (al editar) */}
+                {editingCategory?.imagen_url && !formData.imagen && (
+                  <div className="mb-2">
+                    <img
+                      src={editingCategory.imagen_url}
+                      alt="Imagen actual"
+                      className="h-20 w-full object-cover rounded-lg border border-gray-200"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Imagen actual — sube una nueva para reemplazarla</p>
+                  </div>
+                )}
+                {/* Preview imagen nueva seleccionada */}
+                {formData.imagen && (
+                  <div className="mb-2">
+                    <img
+                      src={URL.createObjectURL(formData.imagen)}
+                      alt="Nueva imagen"
+                      className="h-20 w-full object-cover rounded-lg border border-gray-200"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">{formData.imagen.name}</p>
+                  </div>
+                )}
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      imagen: e.target.files?.[0] || null,
-                    })
+                    setFormData({ ...formData, imagen: e.target.files?.[0] ?? null })
                   }
                   className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:border-primary-500"
                 />

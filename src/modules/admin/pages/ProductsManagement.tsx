@@ -1,34 +1,34 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Image as ImageIcon, X } from "lucide-react";
+import { Plus, Edit, Trash2, Image as ImageIcon, X, Search } from "lucide-react";
 import { Button } from "@shared/components/ui/Button";
 import { ImageCard } from "@shared/components/ui/ImageCard";
 import {
   productsService,
   categoriesService,
   brandsService,
-  sizesService,
 } from "../services/admin.service";
-import type { Product, Category, Brand, Size } from "../types";
-import { SearchBar } from "../components";
+import type { Product, Category, Brand } from "../types";
 import { Pagination } from "@shared/components/ui/Pagination";
 
 interface FormData {
   nombre: string;
   descripcion: string;
   precio: string;
+  price_wholesale: string;
+  price_retail: string;
+  stock: string;
+  stock_min: string;
+  code: string;
+  unit: string;
+  min_order_qty: string;
   marca: string;
   categorias: string[];
   color: string;
   material: string;
-  tallas: string[];
-  stocks: Array<{
-    talla: string;
-    cantidad: number;
-    stock_minimo: number;
-  }>;
   activa: boolean;
   destacada: boolean;
   es_novedad: boolean;
+  imagen: File | null;
 }
 
 export const ProductsManagement: React.FC = () => {
@@ -40,40 +40,22 @@ export const ProductsManagement: React.FC = () => {
   const pageSize = 10;
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [tallas, setTallas] = useState<Size[]>([]);
+  const [filterCategoria, setFilterCategoria] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState<FormData>({
-    nombre: "",
-    descripcion: "",
-    precio: "",
-    marca: "",
-    categorias: [],
-    color: "",
-    material: "",
-    tallas: [],
-    stocks: [],
-    activa: true,
-    destacada: false,
-    es_novedad: false,
-  });
+
+  const emptyForm: FormData = {
+    nombre: "", descripcion: "", precio: "", price_wholesale: "", price_retail: "",
+    stock: "0", stock_min: "0", code: "", unit: "unidad", min_order_qty: "1",
+    marca: "", categorias: [], color: "Variado", material: "",
+    activa: true, destacada: false, es_novedad: false, imagen: null,
+  };
+  const [formData, setFormData] = useState<FormData>(emptyForm);
 
   useEffect(() => {
     loadProducts();
     loadCategoriesAndBrands();
-    loadTallas();
   }, []);
-
-  const loadTallas = async () => {
-    try {
-      // Usar el servicio configurado con los interceptores de autenticación
-      const tallasData = await sizesService.getAll();
-      setTallas(Array.isArray(tallasData) ? tallasData : []);
-    } catch (error) {
-      console.error("Error loading tallas:", error);
-      setTallas([]);
-    }
-  };
 
   const loadProducts = async (pageNum: number = 1) => {
     try {
@@ -81,6 +63,7 @@ export const ProductsManagement: React.FC = () => {
       setPage(pageNum);
       const response = await productsService.getAll({
         search: searchTerm,
+        categorias: filterCategoria || undefined,
         page: pageNum,
       });
 
@@ -147,25 +130,21 @@ export const ProductsManagement: React.FC = () => {
           []
         ).map((c: any) => (typeof c === "string" ? c : c.id));
 
-        const tallasIds = (
-          fullProduct.tallas_disponibles ||
-          fullProduct.tallas_disponibles_detalle ||
-          []
-        ).map((t: any) => (typeof t === "string" ? t : t.id));
-
         setFormData({
           nombre: fullProduct.nombre,
           descripcion: fullProduct.descripcion || "",
-          precio:
-            typeof fullProduct.precio === "number"
-              ? fullProduct.precio.toString()
-              : fullProduct.precio.toString(),
+          precio: String(fullProduct.precio || "0"),
+          price_wholesale: String(fullProduct.price_wholesale || "0"),
+          price_retail: String(fullProduct.price_retail || ""),
+          stock: String(fullProduct.stock ?? fullProduct.stock_total ?? "0"),
+          stock_min: String(fullProduct.stock_min || "0"),
+          code: fullProduct.code || "",
+          unit: fullProduct.unit || "unidad",
+          min_order_qty: String(fullProduct.min_order_qty || "1"),
           marca: marcaId,
           categorias: categoriasIds,
           color: fullProduct.color || "",
           material: fullProduct.material || "",
-          tallas: tallasIds,
-          stocks: stocks,
           activa: fullProduct.activa,
           destacada: fullProduct.destacada || false,
           es_novedad: fullProduct.es_novedad || false,
@@ -176,20 +155,7 @@ export const ProductsManagement: React.FC = () => {
       }
     } else {
       setEditingProduct(null);
-      setFormData({
-        nombre: "",
-        descripcion: "",
-        precio: "",
-        marca: "",
-        categorias: [],
-        color: "",
-        material: "",
-        tallas: [],
-        stocks: [],
-        activa: true,
-        destacada: false,
-        es_novedad: false,
-      });
+      setFormData(emptyForm);
     }
     setShowModal(true);
   };
@@ -222,61 +188,33 @@ export const ProductsManagement: React.FC = () => {
     });
   };
 
-  const handleTallaToggle = (talla: string) => {
-    const isSelected = formData.tallas.includes(talla);
-
-    if (isSelected) {
-      // Remover talla y su stock
-      setFormData({
-        ...formData,
-        tallas: formData.tallas.filter((t) => t !== talla),
-        stocks: formData.stocks.filter((s) => s.talla !== talla),
-      });
-    } else {
-      // Agregar talla con stock default
-      setFormData({
-        ...formData,
-        tallas: [...formData.tallas, talla],
-        stocks: [...formData.stocks, { talla, cantidad: 0, stock_minimo: 5 }],
-      });
-    }
-  };
-
-  const handleStockChange = (
-    tallaId: string,
-    field: "cantidad" | "stock_minimo",
-    value: number
-  ) => {
-    setFormData({
-      ...formData,
-      stocks: formData.stocks.map((stock) =>
-        stock.talla === tallaId ? { ...stock, [field]: value } : stock
-      ),
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const data = {
-        nombre: formData.nombre,
-        descripcion: formData.descripcion || "",
-        precio: parseFloat(formData.precio),
-        marca: formData.marca,
-        categorias: formData.categorias,
-        color: formData.color,
-        material: formData.material,
-        tallas_disponibles: formData.tallas,
-        stocks: formData.stocks,
-        activa: formData.activa,
-        destacada: formData.destacada,
-        es_novedad: formData.es_novedad,
-      };
+      const fd = new globalThis.FormData();
+      fd.append("nombre", formData.nombre);
+      fd.append("descripcion", formData.descripcion || "");
+      fd.append("precio", String(parseFloat(formData.precio) || 0));
+      fd.append("price_wholesale", String(parseFloat(formData.price_wholesale) || 0));
+      if (formData.price_retail) fd.append("price_retail", String(parseFloat(formData.price_retail)));
+      fd.append("stock", String(parseInt(formData.stock) || 0));
+      fd.append("stock_min", String(parseInt(formData.stock_min) || 0));
+      if (formData.code) fd.append("code", formData.code);
+      fd.append("unit", formData.unit || "unidad");
+      fd.append("min_order_qty", String(parseInt(formData.min_order_qty) || 1));
+      fd.append("marca", formData.marca);
+      formData.categorias.forEach((id) => fd.append("categorias", id));
+      fd.append("color", formData.color || "Variado");
+      fd.append("material", formData.material || "");
+      fd.append("activa", String(formData.activa));
+      fd.append("destacada", String(formData.destacada));
+      fd.append("es_novedad", String(formData.es_novedad));
+      if (formData.imagen) fd.append("imagen", formData.imagen);
 
       if (editingProduct) {
-        await productsService.update(editingProduct.id, data as any);
+        await productsService.update(editingProduct.id, fd as any);
       } else {
-        await productsService.create(data as any);
+        await productsService.create(fd as any);
       }
 
       loadProducts();
@@ -322,40 +260,37 @@ export const ProductsManagement: React.FC = () => {
     }
   };
 
-  // Refetch on search (reset to page 1)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      loadProducts(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+    const t = setTimeout(() => { setPage(1); loadProducts(1); }, 300);
+    return () => clearTimeout(t);
+  }, [searchTerm, filterCategoria]);
 
   return (
     <div className="space-y-4">
       {/* Search and Filters */}
-      <div className="flex gap-3 items-center">
-        <div className="flex-1 bg-white rounded-lg shadow-sm p-3">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-64 bg-white rounded-lg shadow-sm p-3">
           <div className="flex gap-3">
-            <div className="flex-1">
-              <SearchBar
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-400"
+                placeholder="Buscar por nombre, código, marca..."
                 value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Buscar productos..."
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <select className="px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500">
-              <option value="">Categoría</option>
+            <select
+              value={filterCategoria}
+              onChange={(e) => setFilterCategoria(e.target.value)}
+              className="px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500"
+            >
+              <option value="">Todas las categorías</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.nombre}
                 </option>
               ))}
-            </select>
-            <select className="px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500">
-              <option value="">Estado</option>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
             </select>
           </div>
         </div>
@@ -434,11 +369,14 @@ export const ProductsManagement: React.FC = () => {
                   {product.color}
                 </p>
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-bold text-primary-600">
-                    ${product.precio}
+                  <span className="text-sm font-bold text-primary-600">
+                    Bs {(product as any).price_wholesale || product.precio}
                   </span>
-                  <span className="text-xs text-neutral-600">
-                    Stock: {product.stock_total}
+                  <span className={`text-xs font-medium ${
+                    ((product as any).is_low_stock) ? "text-red-600" : "text-gray-500"
+                  }`}>
+                    Stock: {(product as any).stock ?? product.stock_total}
+                    {(product as any).is_low_stock && " ⚠"}
                   </span>
                 </div>
 
@@ -608,96 +546,100 @@ export const ProductsManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* Tallas */}
-              <div>
-                <label className="block text-xs font-medium text-neutral-700 mb-1">
-                  Tallas
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {tallas.map((talla: any) => (
-                    <button
-                      key={talla.id}
-                      type="button"
-                      onClick={() => handleTallaToggle(talla.id)}
-                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
-                        formData.tallas.includes(talla.id)
-                          ? "bg-primary-500 text-white"
-                          : "border border-neutral-300 text-neutral-700 hover:border-primary-500"
-                      }`}
-                    >
-                      {talla.nombre}
-                    </button>
-                  ))}
+              {/* Campos B2B mayorista */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Datos mayorista B2B</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Código SKU</label>
+                    <input type="text" name="code" value={formData.code}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500"
+                      placeholder="CHK-001" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Unidad</label>
+                    <select name="unit" value={formData.unit} onChange={handleInputChange}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500">
+                      <option value="unidad">Unidad</option>
+                      <option value="caja">Caja</option>
+                      <option value="docena">Docena</option>
+                      <option value="par">Par</option>
+                      <option value="set">Set</option>
+                      <option value="rollo">Rollo</option>
+                      <option value="kg">Kg</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Precio mayorista (Bs.)</label>
+                    <input type="number" step="0.01" name="price_wholesale" value={formData.price_wholesale}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500"
+                      placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Precio retail sugerido</label>
+                    <input type="number" step="0.01" name="price_retail" value={formData.price_retail}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500"
+                      placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Stock actual</label>
+                    <input type="number" min="0" name="stock" value={formData.stock}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500"
+                      placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Stock mínimo (alerta)</label>
+                    <input type="number" min="0" name="stock_min" value={formData.stock_min}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500"
+                      placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Cant. mínima de pedido</label>
+                    <input type="number" min="1" name="min_order_qty" value={formData.min_order_qty}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:border-primary-500"
+                      placeholder="1" />
+                  </div>
                 </div>
               </div>
 
-              {/* Stock por Talla */}
-              {formData.tallas.length > 0 && (
-                <div>
-                  <label className="block text-xs font-medium text-neutral-700 mb-2">
-                    📦 Stock por Talla
-                  </label>
-                  <div className="space-y-2 bg-neutral-50 p-3 rounded-lg max-h-48 overflow-y-auto">
-                    {formData.tallas.map((tallaId) => {
-                      const talla = tallas.find((t: any) => t.id === tallaId);
-                      const stock = formData.stocks.find(
-                        (s) => s.talla === tallaId
-                      );
-
-                      return (
-                        <div
-                          key={tallaId}
-                          className="grid grid-cols-3 gap-2 items-end"
-                        >
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-600 mb-1">
-                              Talla: {talla?.nombre}
-                            </label>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-600 mb-1">
-                              Cantidad
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={stock?.cantidad || 0}
-                              onChange={(e) =>
-                                handleStockChange(
-                                  tallaId,
-                                  "cantidad",
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                              className="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-neutral-600 mb-1">
-                              Stock Mín.
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={stock?.stock_minimo || 5}
-                              onChange={(e) =>
-                                handleStockChange(
-                                  tallaId,
-                                  "stock_minimo",
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                              className="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                              placeholder="5"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+              {/* Imagen */}
+              <div className="border-t border-gray-100 pt-3">
+                <label className="block text-xs font-medium text-neutral-700 mb-1">
+                  Imagen del producto
+                </label>
+                {editingProduct?.imagen_principal && !formData.imagen && (
+                  <div className="mb-2">
+                    <img
+                      src={editingProduct.imagen_principal}
+                      alt="Imagen actual"
+                      className="h-20 w-20 object-cover rounded-lg border border-gray-200"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Imagen actual — sube una nueva para reemplazarla</p>
                   </div>
-                </div>
-              )}
+                )}
+                {formData.imagen && (
+                  <div className="mb-2">
+                    <img
+                      src={URL.createObjectURL(formData.imagen)}
+                      alt="Nueva imagen"
+                      className="h-20 w-20 object-cover rounded-lg border border-gray-200"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">{formData.imagen.name}</p>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setFormData({ ...formData, imagen: e.target.files?.[0] ?? null })}
+                  className="w-full text-sm border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:border-primary-500"
+                />
+              </div>
 
               {/* Checkboxes */}
               <div className="space-y-2">

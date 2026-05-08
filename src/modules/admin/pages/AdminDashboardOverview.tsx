@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import {
   DollarSign, Package, Users, AlertTriangle, ShoppingCart,
-  TrendingUp, TrendingDown, RefreshCw, Plus,
+  TrendingUp, TrendingDown, RefreshCw, Plus, Calendar, X, Filter,
 } from "lucide-react";
 import { api } from "@/core/config/api.config";
 import { ENDPOINTS } from "@/core/config/endpoints";
@@ -44,6 +44,19 @@ const COLORS_STATUS: Record<string, string> = {
   reembolsado: "#6b7280",
 };
 
+// ---------- Helpers ----------
+function fmtShort(n: number): string {
+  if (n >= 1_000_000) return `Bs ${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `Bs ${(n / 1_000).toFixed(1)}k`;
+  return `Bs ${n.toLocaleString("es-BO")}`;
+}
+
+function buildQuery(params: Record<string, string>): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== "");
+  if (!entries.length) return "";
+  return "?" + entries.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+}
+
 // ---------- Sub-components ----------
 function KpiCard({
   icon: Icon, label, value, change, badge, color = PRIMARY,
@@ -51,21 +64,23 @@ function KpiCard({
   icon: React.ElementType; label: string; value: string | number; change?: number; badge?: boolean; color?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow p-5 flex items-center gap-4 border-l-4" style={{ borderColor: color }}>
-      <div className="rounded-full p-3" style={{ backgroundColor: `${color}22` }}>
-        <Icon size={22} style={{ color }} />
+    <div className="bg-white rounded-xl shadow p-4 flex items-center gap-3 border-l-4" style={{ borderColor: color }}>
+      <div className="rounded-full p-2.5 shrink-0" style={{ backgroundColor: `${color}18` }}>
+        <Icon size={18} style={{ color }} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-        <p className="text-2xl font-bold text-gray-800 truncate">{value}</p>
-        {change !== undefined && (
-          <p className={`text-xs flex items-center gap-1 mt-0.5 ${change >= 0 ? "text-green-600" : "text-red-500"}`}>
-            {change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {change >= 0 ? "+" : ""}{change}% vs mes ant.
+        <p className="text-[10px] text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
+        <p className="text-xl font-bold text-gray-800 leading-tight mt-0.5 break-all">{value}</p>
+        {change !== undefined && change !== 0 && (
+          <p className={`text-[10px] flex items-center gap-0.5 mt-0.5 ${change >= 0 ? "text-green-600" : "text-red-500"}`}>
+            {change >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+            {change >= 0 ? "+" : ""}{change}% mes ant.
           </p>
         )}
       </div>
-      {badge && <span className="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">!</span>}
+      {badge && (
+        <span className="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">!</span>
+      )}
     </div>
   );
 }
@@ -83,23 +98,44 @@ export const AdminDashboardOverview: React.FC = () => {
   const [topClients, setTopClients] = useState<TopClient[]>([]);
   const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
-  const [period, setPeriod] = useState(12);
+  const [period, setPeriod] = useState(48);
   const [loading, setLoading] = useState(true);
+
+  // --- Filtro de fecha (local = lo que el usuario está escribiendo, applied = lo que se envía a la API) ---
+  const [localFrom, setLocalFrom] = useState("");
+  const [localTo, setLocalTo] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
   const [inventoryModal, setInventoryModal] = useState<{ open: boolean; productId?: string; productName?: string }>({ open: false });
   const [movementForm, setMovementForm] = useState({ movement_type: "entrada", quantity: "", notes: "" });
   const [savingMovement, setSavingMovement] = useState(false);
 
+  const hasDateFilter = !!(dateFrom || dateTo);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const dateParams: Record<string, string> = {};
+      if (dateFrom) dateParams.fecha_inicio = dateFrom;
+      if (dateTo) dateParams.fecha_fin = dateTo;
+
+      const dq = buildQuery(dateParams);
+      const withDate = (base: string) => `${base}${dq}`;
+
+      // El monthly combina el período de meses con el rango de fechas cuando aplica
+      const monthlyQ = buildQuery({
+        ...(hasDateFilter ? dateParams : { months: String(period) }),
+      });
+
       const [dash, mon, sts, prods, clients, ls, act] = await Promise.all([
-        api.get(ENDPOINTS.REPORTS.DASHBOARD),
-        api.get(`${ENDPOINTS.REPORTS.MONTHLY}?months=${period}`),
-        api.get(ENDPOINTS.REPORTS.ORDERS_STATUS),
-        api.get(ENDPOINTS.REPORTS.SALES),
-        api.get(ENDPOINTS.REPORTS.TOP_CLIENTS),
-        api.get(ENDPOINTS.REPORTS.LOW_STOCK),
-        api.get(ENDPOINTS.REPORTS.RECENT_ACTIVITY),
+        api.get(withDate(ENDPOINTS.REPORTS.DASHBOARD)),
+        api.get(`${ENDPOINTS.REPORTS.MONTHLY}${monthlyQ}`),
+        api.get(withDate(ENDPOINTS.REPORTS.ORDERS_STATUS)),
+        api.get(withDate(ENDPOINTS.REPORTS.SALES)),
+        api.get(withDate(ENDPOINTS.REPORTS.TOP_CLIENTS)),
+        api.get(ENDPOINTS.REPORTS.LOW_STOCK), // stock siempre es estado actual
+        api.get(withDate(ENDPOINTS.REPORTS.RECENT_ACTIVITY)),
       ]);
       setDashboard(dash.data);
       setMonthly(mon.data);
@@ -113,13 +149,25 @@ export const AdminDashboardOverview: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchAll();
     const interval = setInterval(fetchAll, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchAll]);
+
+  const handleApplyDates = () => {
+    setDateFrom(localFrom);
+    setDateTo(localTo);
+  };
+
+  const handleClearDates = () => {
+    setLocalFrom("");
+    setLocalTo("");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   const handleRegisterMovement = async () => {
     if (!inventoryModal.productId || !movementForm.quantity) return;
@@ -144,104 +192,258 @@ export const AdminDashboardOverview: React.FC = () => {
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB", maximumFractionDigits: 0 }).format(n);
 
+  const PERIOD_OPTIONS = [
+    { label: "6m", value: 6 },
+    { label: "12m", value: 12 },
+    { label: "24m", value: 24 },
+    { label: "48m", value: 48 },
+  ];
+
   const totalOrders = statusData.reduce((a, b) => a + b.count, 0);
 
   // ---------- Render ----------
   return (
     <div className="space-y-6 pb-10">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard — TUMOMITO S.A.</h1>
-          <p className="text-sm text-gray-500">ERP B2B · Importadora Mayorista</p>
-        </div>
+
+      {/* ── Filtro de fecha + Botón Actualizar ─────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-end gap-3">
         <button
           onClick={fetchAll}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50 text-gray-700"
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50 text-gray-700 shrink-0"
         >
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           Actualizar
         </button>
+
+        <div className="bg-white rounded-xl shadow px-5 py-4 flex-1">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-600 shrink-0">
+            <Filter size={15} className="text-blue-600" />
+            Filtrar por período:
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3 flex-1">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Desde</label>
+              <div className="relative">
+                <Calendar size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  type="date"
+                  value={localFrom}
+                  onChange={(e) => setLocalFrom(e.target.value)}
+                  max={localTo || undefined}
+                  className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hasta</label>
+              <div className="relative">
+                <Calendar size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  type="date"
+                  value={localTo}
+                  onChange={(e) => setLocalTo(e.target.value)}
+                  min={localFrom || undefined}
+                  className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleApplyDates}
+              disabled={!localFrom && !localTo}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              Aplicar
+            </button>
+
+            {(hasDateFilter || localFrom || localTo) && (
+              <button
+                onClick={handleClearDates}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <X size={13} />
+                Limpiar filtro
+              </button>
+            )}
+          </div>
+
+          {/* Indicador de filtro activo */}
+          {hasDateFilter && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              {dateFrom && dateTo
+                ? `${dateFrom} → ${dateTo}`
+                : dateFrom
+                ? `Desde ${dateFrom}`
+                : `Hasta ${dateTo}`}
+            </div>
+          )}
+        </div>
+        </div>
       </div>
+      {/* ──────────────────────────────────────────────────────────────── */}
 
       {/* A — KPI Cards */}
       {loading ? (
-        <div className="grid grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-          <KpiCard icon={DollarSign} label="Ingresos totales" value={fmt(dashboard?.total_revenue || 0)} change={dashboard?.revenue_change_pct} color="#1e3a5f" />
-          <KpiCard icon={ShoppingCart} label="Pedidos pendientes" value={dashboard?.pending_orders || 0} badge={(dashboard?.pending_orders || 0) > 10} color="#f59e0b" />
-          <KpiCard icon={Package} label="Productos activos" value={dashboard?.active_products || 0} color="#3b82f6" />
-          <KpiCard icon={Users} label="Clientes activos" value={dashboard?.active_clients || 0} color="#10b981" />
-          <KpiCard icon={AlertTriangle} label="Stock bajo" value={dashboard?.low_stock_products || 0} badge={(dashboard?.low_stock_products || 0) > 0} color="#ef4444" />
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <KpiCard
+              icon={DollarSign}
+              label={hasDateFilter ? "Ingresos en período" : "Ingresos totales"}
+              value={fmtShort(dashboard?.total_revenue || 0)}
+              change={hasDateFilter ? undefined : dashboard?.revenue_change_pct}
+              color="#1e3a5f"
+            />
+            <KpiCard
+              icon={ShoppingCart} label="Pedidos pendientes"
+              value={dashboard?.pending_orders ?? 0}
+              badge={(dashboard?.pending_orders || 0) > 10} color="#f59e0b"
+            />
+            <KpiCard
+              icon={Package} label="Productos activos"
+              value={dashboard?.active_products ?? 0} color="#3b82f6"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <KpiCard
+              icon={Users} label="Clientes activos"
+              value={dashboard?.active_clients ?? 0} color="#10b981"
+            />
+            <KpiCard
+              icon={AlertTriangle} label="Stock bajo"
+              value={dashboard?.low_stock_products ?? 0}
+              badge={(dashboard?.low_stock_products || 0) > 0} color="#ef4444"
+            />
+            <KpiCard
+              icon={ShoppingCart} label={hasDateFilter ? "Pedidos en período" : "Total pedidos"}
+              value={totalOrders} color="#8b5cf6"
+            />
+          </div>
         </div>
       )}
 
-      {/* B + C — Charts row */}
-      <div className="grid grid-cols-12 gap-4">
-        {/* B — Area chart ventas por mes */}
-        <div className="col-span-12 xl:col-span-7 bg-white rounded-xl shadow p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-700">Ventas por mes (Bs.)</h2>
+      {/* B — Ventas por mes */}
+      <div className="bg-white rounded-xl shadow p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-700">
+            Ventas por mes (Bs.)
+            {hasDateFilter && (
+              <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                período filtrado
+              </span>
+            )}
+          </h2>
+          {/* Selector de período solo cuando no hay filtro de fecha */}
+          {!hasDateFilter && (
             <div className="flex gap-1 text-xs">
-              {[3, 6, 12].map((m) => (
+              {PERIOD_OPTIONS.map(({ label, value }) => (
                 <button
-                  key={m}
-                  onClick={() => setPeriod(m)}
-                  className={`px-3 py-1 rounded-full border ${period === m ? "bg-blue-600 text-white border-blue-600" : "text-gray-600 hover:bg-gray-50"}`}
+                  key={value}
+                  onClick={() => setPeriod(value)}
+                  className={`px-3 py-1 rounded-full border transition-colors ${
+                    period === value
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "text-gray-600 hover:bg-gray-50 border-gray-200"
+                  }`}
                 >
-                  {m}m
+                  {label}
                 </button>
               ))}
             </div>
-          </div>
-          {loading ? <Skeleton className="h-52" /> : (
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={monthly}>
-                <defs>
-                  <linearGradient id="confirmed" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={PRIMARY} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={PRIMARY} stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="pending" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => fmt(v)} />
-                <Legend />
-                <Area type="monotone" dataKey="confirmed_revenue" name="Confirmados" stroke={PRIMARY} fill="url(#confirmed)" strokeWidth={2} />
-                <Area type="monotone" dataKey="pending_revenue" name="Pendientes" stroke="#f59e0b" fill="url(#pending)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
           )}
         </div>
+        {loading ? <Skeleton className="h-52" /> : (
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={monthly}>
+              <defs>
+                <linearGradient id="confirmed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={PRIMARY} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={PRIMARY} stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="pending" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                tickFormatter={(v) => {
+                  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+                  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}k`;
+                  return String(v);
+                }}
+                width={45}
+              />
+              <Tooltip formatter={(v: number) => fmt(v)} />
+              <Legend />
+              <Area type="monotone" dataKey="confirmed_revenue" name="Confirmados" stroke={PRIMARY} fill="url(#confirmed)" strokeWidth={2} />
+              <Area type="monotone" dataKey="pending_revenue" name="Pendientes" stroke="#f59e0b" fill="url(#pending)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
 
-        {/* C — Donut estados pedidos */}
-        <div className="col-span-12 xl:col-span-5 bg-white rounded-xl shadow p-5">
-          <h2 className="font-semibold text-gray-700 mb-4">Estado de pedidos</h2>
+      {/* C — Top 10 productos */}
+      <div className="bg-white rounded-xl shadow p-5">
+        <h2 className="font-semibold text-gray-700 mb-4">
+          Top 10 productos por ingresos
+          {hasDateFilter && (
+            <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">período filtrado</span>
+          )}
+        </h2>
+        {loading ? <Skeleton className="h-64" /> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={topProducts} layout="vertical" margin={{ left: 10, right: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <YAxis type="category" dataKey="product_name" tick={{ fontSize: 9 }} width={120} />
+              <Tooltip formatter={(v: number) => fmt(v)} />
+              <Bar dataKey="total_revenue" name="Ingresos (Bs.)" fill={PRIMARY} radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* D — Estado de pedidos + Top 5 clientes */}
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 xl:col-span-4 bg-white rounded-xl shadow p-5">
+          <h2 className="font-semibold text-gray-700 mb-3">
+            Estado de pedidos
+            {hasDateFilter && (
+              <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">filtrado</span>
+            )}
+          </h2>
           {loading ? <Skeleton className="h-52" /> : (
             <>
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
-                  <Pie data={statusData} dataKey="count" nameKey="estado" cx="50%" cy="50%"
-                    innerRadius={55} outerRadius={80} paddingAngle={2}>
+                  <Pie data={statusData as any[]} dataKey="count" nameKey="estado" cx="50%" cy="50%"
+                    innerRadius={50} outerRadius={75} paddingAngle={2}>
                     {statusData.map((entry, i) => (
                       <Cell key={i} fill={COLORS_STATUS[entry.estado] || "#9ca3af"} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number, name: string) => [`${v} (${((v / totalOrders) * 100).toFixed(1)}%)`, name]} />
+                  <Tooltip formatter={(v: number, name: string) => [`${v} (${totalOrders > 0 ? ((v / totalOrders) * 100).toFixed(1) : 0}%)`, name]} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex flex-wrap gap-2 mt-2 justify-center">
+              <div className="flex flex-wrap gap-1.5 mt-2 justify-center">
                 {statusData.map((s, i) => (
                   <span key={i} className="flex items-center gap-1 text-xs text-gray-600">
-                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: COLORS_STATUS[s.estado] || "#9ca3af" }} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: COLORS_STATUS[s.estado] || "#9ca3af" }} />
                     {s.estado} ({s.count})
                   </span>
                 ))}
@@ -249,13 +451,50 @@ export const AdminDashboardOverview: React.FC = () => {
             </>
           )}
         </div>
+
+        <div className="col-span-12 xl:col-span-8 bg-white rounded-xl shadow p-5">
+          <h2 className="font-semibold text-gray-700 mb-4">
+            Top 5 clientes
+            {hasDateFilter && (
+              <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">filtrado</span>
+            )}
+          </h2>
+          {loading ? <Skeleton className="h-52" /> : (
+            <div className="space-y-4">
+              {topClients.map((c, i) => {
+                const maxSpent = topClients[0]?.total_spent || 1;
+                const pct = (c.total_spent / maxSpent) * 100;
+                const badge = c.client_type === "vip" ? "bg-yellow-100 text-yellow-800" : c.client_type === "regular" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600";
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-sm font-medium text-gray-700 truncate">{c.company_name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${badge}`}>{c.client_type}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                        <span>{c.city}</span>
+                        <span>{fmt(c.total_spent || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* D — Low stock table */}
+      {/* E — Alertas de stock bajo */}
       <div className="bg-white rounded-xl shadow p-5">
-        <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+        <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
           <AlertTriangle size={16} className="text-red-500" />
           Alertas de stock bajo
+          <span className="text-xs font-normal text-gray-400">(estado actual, sin filtro de fecha)</span>
         </h2>
         {loading ? <Skeleton className="h-40" /> : lowStock.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">Sin alertas de stock — ¡todo en orden!</p>
@@ -279,10 +518,7 @@ export const AdminDashboardOverview: React.FC = () => {
                   const pct = item.stock_min > 0 ? Math.min((item.stock / item.stock_min) * 100, 100) : 0;
                   const isCritical = item.stock === 0;
                   return (
-                    <tr
-                      key={item.id}
-                      className={isCritical ? "bg-red-50" : "bg-yellow-50"}
-                    >
+                    <tr key={item.id} className={isCritical ? "bg-red-50" : "bg-yellow-50"}>
                       <td className="px-3 py-2 font-mono text-xs">{item.code || "-"}</td>
                       <td className="px-3 py-2 font-medium">{item.nombre}</td>
                       <td className="px-3 py-2 text-gray-500">{item.brand}</td>
@@ -321,63 +557,19 @@ export const AdminDashboardOverview: React.FC = () => {
         )}
       </div>
 
-      {/* E + F row — Top products + Top clients */}
-      <div className="grid grid-cols-12 gap-4">
-        {/* E — Top products bar chart */}
-        <div className="col-span-12 xl:col-span-7 bg-white rounded-xl shadow p-5">
-          <h2 className="font-semibold text-gray-700 mb-4">Top 10 productos por ingresos</h2>
-          {loading ? <Skeleton className="h-56" /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={topProducts} layout="vertical" margin={{ left: 10, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <YAxis type="category" dataKey="product_name" tick={{ fontSize: 9 }} width={110} />
-                <Tooltip formatter={(v: number) => fmt(v)} />
-                <Bar dataKey="total_revenue" name="Ingresos (Bs.)" fill={PRIMARY} radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* F — Top clients */}
-        <div className="col-span-12 xl:col-span-5 bg-white rounded-xl shadow p-5">
-          <h2 className="font-semibold text-gray-700 mb-4">Top 5 clientes</h2>
-          {loading ? <Skeleton className="h-56" /> : (
-            <div className="space-y-3">
-              {topClients.map((c, i) => {
-                const maxSpent = topClients[0]?.total_spent || 1;
-                const pct = (c.total_spent / maxSpent) * 100;
-                const badge = c.client_type === "vip" ? "bg-yellow-100 text-yellow-800" : c.client_type === "regular" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600";
-                return (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-sm font-medium text-gray-700 truncate">{c.company_name}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${badge}`}>{c.client_type}</span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                        <span>{c.city}</span>
-                        <span>{fmt(c.total_spent || 0)}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* H — Actividad reciente */}
+      {/* F — Actividad reciente */}
       <div className="bg-white rounded-xl shadow p-5">
-        <h2 className="font-semibold text-gray-700 mb-4">Actividad reciente</h2>
+        <h2 className="font-semibold text-gray-700 mb-4">
+          Actividad reciente
+          {hasDateFilter && (
+            <span className="ml-2 text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">filtrado</span>
+          )}
+        </h2>
         {loading ? <Skeleton className="h-40" /> : (
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {activity.map((ev, i) => {
+            {activity.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">Sin actividad en el período seleccionado</p>
+            ) : activity.map((ev, i) => {
               const icon = ev.type === "order" ? "📦" : ev.type === "inventory" ? "🏭" : "📄";
               const time = new Date(ev.date).toLocaleString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
               return (
