@@ -19,7 +19,8 @@ export const AdminRoute: React.FC = () => {
     (user as any)?.rol?.nombre === "Empleado";
 
   if (!isAdmin && !isEmpleado) {
-    return <Navigate to="/admin" replace />;
+    // No autorizado para área admin → redirigir al catálogo (evita loop infinito)
+    return <Navigate to="/" replace />;
   }
 
   // Authorized for admin area: render nested admin routes

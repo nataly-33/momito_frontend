@@ -1,7 +1,7 @@
 import axios from "axios";
 import { ENDPOINTS } from "@/core/config/endpoints";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -35,13 +35,9 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem("refresh_token");
       if (refreshToken) {
         try {
-          // Use central ENDPOINTS collection to construct the refresh URL.
-          const response = await axios.post(
-            `${API_URL}${ENDPOINTS.AUTH.REFRESH}`,
-            {
-              refresh: refreshToken,
-            }
-          );
+          const response = await api.post(ENDPOINTS.AUTH.REFRESH, {
+            refresh: refreshToken,
+          });
 
           const { access } = response.data;
           localStorage.setItem("access_token", access);
