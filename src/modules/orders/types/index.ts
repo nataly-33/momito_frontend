@@ -123,15 +123,16 @@ export interface OrdersParams {
 
 // Datos para el checkout
 export interface CheckoutData {
-  direccion_envio_id: string;
-  metodo_pago: "efectivo" | "tarjeta" | "paypal" | "billetera";
+  direccion_envio_id?: string;    // opcional: dirección guardada
+  direccion_texto?: string;       // opcional: dirección libre (texto)
+  metodo_pago: "efectivo" | "tarjeta";
   notas_cliente?: string;
-  payment_method_id?: string;
-  paypal_order_id?: string;
+  payment_method_id?: string;     // Stripe pm_xxx (requerido si metodo_pago === 'tarjeta')
 }
 
-// Datos para pago con Stripe
-export interface StripePaymentData {
-  order_id: string;
-  payment_method_id: string;
+// Respuesta del checkout
+export interface CheckoutResponse {
+  message: string;
+  pedido: Order;
+  stripe_client_secret?: string; // presente si el pago requiere 3D Secure
 }

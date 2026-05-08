@@ -4,6 +4,7 @@ import type {
   Order,
   PaymentMethod,
   CheckoutData,
+  CheckoutResponse,
   OrdersParams,
 } from "../types";
 
@@ -34,8 +35,8 @@ export const ordersService = {
     return response.data;
   },
 
-  async checkout(data: CheckoutData): Promise<Order> {
-    const response = await api.post<Order>(ENDPOINTS.ORDERS.CHECKOUT, data);
+  async checkout(data: CheckoutData): Promise<CheckoutResponse> {
+    const response = await api.post<CheckoutResponse>(ENDPOINTS.ORDERS.CHECKOUT, data);
     return response.data;
   },
 
