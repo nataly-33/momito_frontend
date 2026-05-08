@@ -84,33 +84,31 @@ class AIService {
    * @param months_forward - Meses de predicciones a mostrar (default: 3)
    */
   async getDashboard(
-    months_back: number = 6,
-    months_forward: number = 3
+    months_back: number = 24,
+    months_forward: number = 6,
+    force_refresh = false,
   ): Promise<DashboardResponse> {
     const response = await api.get<DashboardResponse>('/ai/dashboard/', {
       params: {
         months_back,
         months_forward,
+        ...(force_refresh ? { force_refresh: 'true' } : {}),
       },
     });
     return response.data;
   }
 
   /**
-   * Genera nuevas predicciones de ventas
-   * IMPORTANTE: Esto ejecuta el modelo y guarda las predicciones en BD
-   * 
-   * @param months_forward - Meses a predecir (default: 3)
+   * Fuerza la regeneración de predicciones re-ejecutando el modelo.
+   * Sobreescribe las predicciones en caché.
    */
   async generatePredictions(
-    months_forward: number = 3
-  ): Promise<GeneratePredictionsResponse> {
-    const response = await api.post<GeneratePredictionsResponse>(
-      '/ai/predictions/sales-forecast/',
-      {
-        months_forward,
-      }
-    );
+    months_back: number,
+    months_forward: number = 6,
+  ): Promise<DashboardResponse> {
+    const response = await api.get<DashboardResponse>('/ai/dashboard/', {
+      params: { months_back, months_forward, force_refresh: 'true' },
+    });
     return response.data;
   }
 

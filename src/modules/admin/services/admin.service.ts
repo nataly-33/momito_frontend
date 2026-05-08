@@ -203,7 +203,7 @@ export const productsService = {
     try {
       const params = new URLSearchParams();
       if (filters?.search) params.append("search", filters.search);
-      if (filters?.categoria) params.append("categoria", filters.categoria);
+      if (filters?.categorias) params.append("categorias", filters.categorias);
       if (filters?.marca) params.append("marca", filters.marca);
       if (filters?.precio_min)
         params.append("precio_min", String(filters.precio_min));
@@ -251,87 +251,25 @@ export const productsService = {
     }
   },
 
-  async create(data: CreateProductData): Promise<Product> {
+  async create(data: CreateProductData | FormData): Promise<Product> {
     try {
-      // Si hay imagen, usar FormData; si no, usar JSON
-      if (data.imagen) {
-        const formData = new FormData();
-        formData.append("nombre", data.nombre);
-        formData.append("descripcion", data.descripcion);
-        formData.append("precio", String(data.precio));
-        formData.append("marca", data.marca);
-        formData.append("color", data.color);
-
-        data.categorias.forEach((id: string) =>
-          formData.append("categorias", id)
-        );
-        if (data.tallas_disponibles) {
-          data.tallas_disponibles.forEach((id: string) =>
-            formData.append("tallas_disponibles", id)
-          );
-        }
-
-        // Agregar stocks si están disponibles
-        if (data.stocks && data.stocks.length > 0) {
-          formData.append("stocks", JSON.stringify(data.stocks));
-        }
-
-        if (data.material) formData.append("material", data.material);
-        if (data.activa !== undefined)
-          formData.append("activa", String(data.activa));
-        if (data.destacada !== undefined)
-          formData.append("destacada", String(data.destacada));
-        if (data.es_novedad !== undefined)
-          formData.append("es_novedad", String(data.es_novedad));
-        formData.append("imagen", data.imagen);
-
-        const response = await api.post(ENDPOINTS.PRODUCTS.BASE, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        return response.data;
-      } else {
-        // Enviar como JSON cuando no hay imagen
-        const jsonData: any = {
-          nombre: data.nombre,
-          descripcion: data.descripcion,
-          precio: data.precio,
-          marca: data.marca,
-          categorias: data.categorias,
-          tallas_disponibles: data.tallas_disponibles || [],
-          color: data.color,
-          material: data.material,
-          activa: data.activa !== undefined ? data.activa : true,
-          destacada: data.destacada || false,
-          es_novedad: data.es_novedad || false,
-        };
-
-        // Agregar stocks si están disponibles
-        if (data.stocks && data.stocks.length > 0) {
-          jsonData.stocks = data.stocks;
-        }
-
-        const response = await api.post(ENDPOINTS.PRODUCTS.BASE, jsonData);
-        return response.data;
-      }
+      const isFormData = data instanceof FormData;
+      const response = await api.post(ENDPOINTS.PRODUCTS.BASE, data, {
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+      });
+      return response.data;
     } catch (error: any) {
       console.error("Error creating product:", error.response?.data);
       throw error;
     }
   },
 
-  async update(id: string, data: UpdateProductData): Promise<Product> {
+  async update(id: string, data: UpdateProductData | FormData): Promise<Product> {
     try {
-      // Preparar datos JSON con stocks
-      const jsonData: any = {
-        ...data,
-      };
-
-      // Si hay stocks, incluirlos
-      if (data.stocks && data.stocks.length > 0) {
-        jsonData.stocks = data.stocks;
-      }
-
-      const response = await api.patch(ENDPOINTS.PRODUCTS.BY_ID(id), jsonData);
+      const isFormData = data instanceof FormData;
+      const response = await api.patch(ENDPOINTS.PRODUCTS.BY_ID(id), data, {
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+      });
       return response.data;
     } catch (error: any) {
       console.error("Error updating product:", error.response?.data);
@@ -537,6 +475,9 @@ export const ordersService = {
       const params = new URLSearchParams();
       if (filters?.search) params.append("search", filters.search);
       if (filters?.estado) params.append("estado", filters.estado);
+      if (filters?.fecha_inicio) params.append("fecha_inicio", filters.fecha_inicio);
+      if (filters?.fecha_fin) params.append("fecha_fin", filters.fecha_fin);
+      if (filters?.limit) params.append("limit", String(filters.limit));
       if (filters?.page) params.append("page", String(filters.page));
 
       const response = await api.get(`${ENDPOINTS.ORDERS.BASE}?${params}`);

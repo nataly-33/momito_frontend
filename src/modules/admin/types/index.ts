@@ -165,7 +165,7 @@ export interface Category {
   nombre: string;
   slug?: string;
   descripcion: string;
-  imagen?: string;
+  imagen_url?: string | null;  // URL relativa: /images/categorias/file.jpg
   activa: boolean;
   total_prendas: number;
   created_at: string;
